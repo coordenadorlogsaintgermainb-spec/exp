@@ -851,36 +851,19 @@ const perfMetaPlugin = {
     ctx.save();
     ctx.beginPath();
     ctx.setLineDash([6, 4]);
-    ctx.strokeStyle = 'rgba(100,100,100,0.85)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 1.5;
     ctx.moveTo(x.left, yMeta);
     ctx.lineTo(x.right, yMeta);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Label "Meta 100" — negrito na ponta direita com fundo destacado
-    const label = `Meta ${META_VAL}`;
-    ctx.font = 'bold 11px sans-serif';
-    const textW = ctx.measureText(label).width;
-    const pad = 5;
-    const boxX = x.right - textW - pad * 2 - 2;
-    const boxY = yMeta - 20;
-    const boxH = 16;
-    const boxW = textW + pad * 2;
-    // Fundo do rótulo
-    ctx.fillStyle = 'rgba(80,80,80,0.85)';
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(boxX, boxY, boxW, boxH, 3);
-    } else {
-      ctx.rect(boxX, boxY, boxW, boxH);
-    }
-    ctx.fill();
-    // Texto
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, boxX + pad, boxY + boxH / 2);
+    // Label "Meta 100"
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`Meta ${META_VAL}`, x.right - 2, yMeta - 2);
     ctx.restore();
 
     // ── Rótulos sobre as barras ──
@@ -981,7 +964,7 @@ function drawPerfChart(cKey, lineData, lineColor, hourLabels) {
   const colaboradores = Object.entries(lineData.colaboradores);
 
   const datasets = colaboradores.map(([nome, hrs]) => {
-    const bgColors  = hrs.map(v => v >= META ? 'rgba(74,222,128,0.82)'  : v > 0 ? 'rgba(248,113,113,0.82)'  : 'rgba(120,120,120,0.15)');
+    const bgColors  = hrs.map(v => v >= META ? 'rgba(74,222,128,0.55)'  : v > 0 ? 'rgba(248,113,113,0.55)'  : 'rgba(120,120,120,0.15)');
     const brdColors = hrs.map(v => v >= META ? 'rgba(74,222,128,1)'     : v > 0 ? 'rgba(248,113,113,1)'     : 'rgba(120,120,120,0.3)');
     return {
       label: nome,
@@ -994,7 +977,7 @@ function drawPerfChart(cKey, lineData, lineColor, hourLabels) {
   });
 
   if (colaboradores.length > 1) {
-    const bgColors  = lineData.totals.map(v => v >= META ? 'rgba(74,222,128,0.82)'  : v > 0 ? 'rgba(248,113,113,0.82)'  : 'rgba(120,120,120,0.15)');
+    const bgColors  = lineData.totals.map(v => v >= META ? 'rgba(74,222,128,0.55)'  : v > 0 ? 'rgba(248,113,113,0.55)'  : 'rgba(120,120,120,0.15)');
     const brdColors = lineData.totals.map(v => v >= META ? 'rgba(74,222,128,1)'     : v > 0 ? 'rgba(248,113,113,1)'     : 'rgba(120,120,120,0.3)');
     datasets.push({
       label: 'Total linha',
@@ -1123,16 +1106,13 @@ function renderPerfGrid(rows, gridId, chartPrefix) {
     const horasFora    = lineData.totals.filter(v => v > 0 && v < META).length;
     const pctDentro    = horasComDado.length > 0 ? Math.round((horasDentro / horasComDado.length) * 100) : 0;
 
-    // Montar label da linha com nome do colaborador
-    const nomeLabel = nomeColaborador !== '—' ? nomeColaborador : '';
-    const linhaBadgeLabel = nomeLabel ? `${linhaName} — ${nomeLabel}` : linhaName;
-
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
       <div class="card-header" style="justify-content:space-between;align-items:flex-start">
         <div style="display:flex;align-items:center;gap:8px">
-          <span class="sup-badge ${badge}" style="white-space:nowrap">${linhaBadgeLabel}</span>
+          <span class="sup-badge ${badge}" style="white-space:nowrap">${linhaName}</span>
+          <span class="card-name" style="font-size:13px;color:var(--text-secondary)">${nomeColaborador}</span>
         </div>
         ${totalLinha > 0 ? `<span style="font-size:11px;color:var(--text-tertiary);white-space:nowrap">${colaboradores.length} colaborador${colaboradores.length!==1?'es':''}</span>` : ''}
       </div>
@@ -1620,6 +1600,110 @@ function renderHcDiarioGrid(dateISO) {
     grids.appendChild(card);
     setTimeout(() => drawHcDoughnut(cKey, d, sup.color), 60);
   });
+
+  // ── Velocímetro de Nível de Presença ──
+  if (dateISO) {
+    const gaugeWrap = document.createElement('div');
+    gaugeWrap.style.cssText = 'grid-column:1/-1;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.2rem 1.5rem;display:flex;flex-direction:column;align-items:center;';
+
+    const pctPres = totalFixo > 0 ? (totalPres / totalFixo) * 100 : 0;
+
+    // Definição dos níveis
+    const niveis = [
+      { min: 0,  max: 60, label: 'Crítico',       cor: '#dc2626' },
+      { min: 60, max: 70, label: 'Baixo',          cor: '#ea580c' },
+      { min: 70, max: 75, label: 'Alerta',         cor: '#d97706' },
+      { min: 75, max: 80, label: 'Moderado',       cor: '#ca8a04' },
+      { min: 80, max: 85, label: 'Satisfatório',   cor: '#84cc16' },
+      { min: 85, max: 90, label: 'Bom',            cor: '#22c55e' },
+      { min: 90, max: 100, label: 'Excelente',     cor: '#15803d' },
+    ];
+
+    // Nível atual
+    const nivelAtual = niveis.find(n => pctPres >= n.min && pctPres < n.max) || niveis[niveis.length - 1];
+
+    // Parâmetros do arco semicircular (SVG)
+    // Arco vai de 180° a 0° (esquerda → direita), semicírculo superior
+    const cx = 200, cy = 180, r = 130, rInner = 80;
+
+    function polarToCart(deg, radius) {
+      const rad = (deg * Math.PI) / 180;
+      return { x: cx + radius * Math.cos(rad), y: cy - radius * Math.sin(rad) };
+    }
+
+    function arcPath(startDeg, endDeg, rOuter, rIn) {
+      const s1 = polarToCart(startDeg, rOuter);
+      const e1 = polarToCart(endDeg, rOuter);
+      const s2 = polarToCart(endDeg, rIn);
+      const e2 = polarToCart(startDeg, rIn);
+      const large = (startDeg - endDeg) > 180 ? 1 : 0;
+      return `M${s1.x},${s1.y} A${rOuter},${rOuter},0,${large},0,${e1.x},${e1.y} L${s2.x},${s2.y} A${rIn},${rIn},0,${large},1,${e2.x},${e2.y} Z`;
+    }
+
+    // Cada segmento ocupa proporção do intervalo [60°..120°] → 180° total
+    const totalRange = 100; // 0% a 100%
+    const arcStart = 180, arcEnd = 0; // em graus (esquerda = 0%, direita = 100%)
+
+    const segmentos = niveis.map(n => {
+      const dStart = arcStart - (n.min / totalRange) * 180;
+      const dEnd   = arcStart - (n.max / totalRange) * 180;
+      return { ...n, dStart, dEnd };
+    }).reverse(); // SVG desenha por cima, então inverter
+
+    const segsSVG = segmentos.map(s =>
+      `<path d="${arcPath(s.dStart, s.dEnd, r, rInner)}" fill="${s.cor}" opacity="0.85"/>`
+    ).join('');
+
+    // Ponteiro
+    const agulhaDeg = arcStart - (Math.min(Math.max(pctPres, 0), 100) / 100) * 180;
+    const agulhaRad = (agulhaDeg * Math.PI) / 180;
+    const agulhaLen = 110;
+    const ax = cx + agulhaLen * Math.cos(agulhaRad);
+    const ay = cy - agulhaLen * Math.sin(agulhaRad);
+
+    // Labels nos extremos e meio
+    const labelsSVG = [
+      { deg: 180, txt: '0%' },
+      { deg: 135, txt: '25%' },
+      { deg: 90,  txt: '50%' },
+      { deg: 45,  txt: '75%' },
+      { deg: 0,   txt: '100%' },
+    ].map(l => {
+      const p = polarToCart(l.deg, r + 18);
+      return `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="var(--text-secondary)">${l.txt}</text>`;
+    }).join('');
+
+    // Labels dos níveis dentro dos segmentos
+    const niveisLabelsSVG = niveis.map(n => {
+      const midDeg = arcStart - ((n.min + n.max) / 2 / totalRange) * 180;
+      const p = polarToCart(midDeg, (r + rInner) / 2);
+      const fontSize = n.max - n.min <= 5 ? 8 : 9;
+      return `<text x="${p.x}" y="${p.y}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize}" font-weight="700" fill="#fff">${n.label}</text>`;
+    }).join('');
+
+    const [y_,m_,d_] = dateISO.split('-');
+    const dateFmt = `${d_}/${m_}/${y_}`;
+
+    gaugeWrap.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px">Nível de Presença da Operação · ${dateFmt}</div>
+      <svg viewBox="0 0 400 200" width="100%" style="max-width:420px;display:block">
+        ${segsSVG}
+        ${labelsSVG}
+        ${niveisLabelsSVG}
+        <!-- Fundo central (tampão do anel) -->
+        <circle cx="${cx}" cy="${cy}" r="${rInner - 2}" fill="var(--bg)"/>
+        <!-- Ponteiro -->
+        <line x1="${cx}" y1="${cy}" x2="${ax}" y2="${ay}" stroke="var(--text)" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="${cx}" cy="${cy}" r="8" fill="var(--text)"/>
+        <circle cx="${cx}" cy="${cy}" r="4" fill="var(--bg)"/>
+        <!-- Valor central -->
+        <text x="${cx}" y="${cy - 15}" text-anchor="middle" font-size="26" font-weight="800" fill="${nivelAtual.cor}">${Math.round(pctPres)}%</text>
+        <text x="${cx}" y="${cy + 8}" text-anchor="middle" font-size="11" font-weight="600" fill="${nivelAtual.cor}">${nivelAtual.label}</text>
+        <text x="${cx}" y="${cy + 22}" text-anchor="middle" font-size="10" fill="var(--text-secondary)">${totalPres} de ${totalFixo} HC</text>
+      </svg>`;
+
+    grids.appendChild(gaugeWrap);
+  }
 }
 
 function renderHcDiario(dateISO) {
